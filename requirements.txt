@@ -2,3 +2,4 @@ python-dotenv
 jira
 SpeechRecognition
 pyaudio
+keyring
