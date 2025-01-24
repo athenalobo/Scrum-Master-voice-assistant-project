@@ -40,7 +40,7 @@ jobs:
 
       - name: Build executable
         run: |
-          pyinstaller app.spec
+          pyinstaller jira-assistant.spec
 
       - name: Upload build artifacts
         uses: actions/upload-artifact@v3
