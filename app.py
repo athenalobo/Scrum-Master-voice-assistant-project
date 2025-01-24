@@ -1,5 +1,6 @@
 import os
 import json
+import tempfile
 import speech_recognition as sr
 from jira import JIRA, JIRAError
 import keyring
@@ -29,7 +30,7 @@ def load_credentials():
     
     while True:
         username = input("Enter Jira username: ")
-        api_key = input("Enter Jira API key: ")
+        api_key = input("Enter Jira API token: ")
         
         if validate_credentials(username, api_key):
             keyring.set_password("jira", "username", username)
@@ -85,6 +86,25 @@ def choose_from_options(prompt, options):
         except ValueError:
             print("Please enter a valid number.")
 
+def get_all_project_keys(jira_client):
+    try:
+        projects = jira_client.projects()
+        project_data = [(project.name, project.key) for project in projects]
+        return sorted(project_data, key=lambda x: x[0])
+    except JIRAError as e:
+        print(f"Error retrieving project keys: {e}")
+        return []
+
+def save_project_keys_to_file(project_data):
+    temp_file_path = os.path.join(tempfile.gettempdir(), 'jira_project_keys.txt')
+    
+    with open(temp_file_path, 'w') as f:
+        f.write("CAST Jira Project Keys:\n\n")
+        for name, key in project_data:
+            f.write(f"{name}: {key}\n")
+    
+    return temp_file_path
+
 def create_ticket():
     try:
         username, api_key = load_credentials()
@@ -115,9 +135,24 @@ def create_ticket():
             product_owner_id = product_owners['Guillaume Rager']
             project_key = 'PROFILER'
         else:
+            while True:
+                project_key_input = input("Enter the project key (type 'ls' to see list): ")
+                
+                if project_key_input.lower() == 'ls':
+                    project_data = get_all_project_keys(jira_client)
+                    
+                    if project_data:
+                        file_path = save_project_keys_to_file(project_data)
+                        print(f"List of Project Keys: {file_path}")
+                    else:
+                        print("No project keys could be retrieved.")
+                
+                else:
+                    project_key = project_key_input.upper()
+                    break
+                
             product_owner = choose_from_options("Select Product Owner:", list(product_owners.keys()))
             product_owner_id = product_owners[product_owner]
-            project_key = input("Enter the project key: ")
 
         issue_types = ['Story', 'Technical Story', 'Bug']
         issue_type = choose_from_options("Choose Issue Type:", issue_types).lower()
@@ -142,8 +177,7 @@ def create_ticket():
 
         new_issue = jira_client.create_issue(fields=issue_dict)
         ticket_url = f"https://cast-products.atlassian.net/browse/{new_issue.key}"
-        print(f"Ticket created successfully: {new_issue.key}")
-        print(f"Ticket URL: {ticket_url}")
+        print(f"Ticket created successfully: {ticket_url}")
 
     except JIRAError as e:
         print(f"Unexpected error creating ticket: {e}")
