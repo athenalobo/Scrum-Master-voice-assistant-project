@@ -1,6 +1,8 @@
 import os
 import sys
 import tempfile
+from time import sleep
+
 import speech_recognition as sr
 from jira import JIRAError
 
@@ -199,6 +201,7 @@ def main():
     else:
         load_settings()
         create_ticket()
+        sleep(5)
 
 
 if __name__ == "__main__":
