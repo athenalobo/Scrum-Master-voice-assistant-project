@@ -2,7 +2,7 @@ import os
 import sys
 import tempfile
 import speech_recognition as sr
-from jira import JIRA, JIRAError
+from jira import JIRAError
 
 from jira_utils import get_jira
 from setup.setup_cli import setup, load_settings, get_settings
@@ -197,7 +197,7 @@ def main():
     if len(args) > 0 and args[0] == "setup":
         setup()
     else:
-        settings = load_settings()
+        load_settings()
         create_ticket()
 
 
