@@ -1,53 +1,35 @@
 import os
-import json
+import sys
 import tempfile
 import speech_recognition as sr
 from jira import JIRA, JIRAError
-import keyring
 
-def validate_credentials(username, api_key):
-    try:
-        jira_client = JIRA(
-            options={'server': 'https://cast-products.atlassian.net'},
-            basic_auth=(username, api_key)
-        )
-        jira_client.current_user()
-        return True
-    except (JIRAError, Exception):
-        return False
+JIRA_SERVER = 'https://cast-products.atlassian.net'
+JIRA_USERNAME = 'your_username'  # Replace with actual username
+JIRA_API_TOKEN = 'your_api_token'  # Replace with actual API token
 
-def load_credentials():
-    username = keyring.get_password("jira", "username")
-    api_key = keyring.get_password("jira", "api_key")
-    
-    if username and api_key:
-        if validate_credentials(username, api_key):
-            return username, api_key
-        else:
-            print("Authentication credentials are no longer valid!")
-            keyring.delete_password("jira", "username")
-            keyring.delete_password("jira", "api_key")
-    
-    while True:
-        username = input("Enter Jira username: ")
-        api_key = input("Enter Jira API token: ")
-        
-        if validate_credentials(username, api_key):
-            keyring.set_password("jira", "username", username)
-            keyring.set_password("jira", "api_key", api_key)
-            return username, api_key
-        else:
-            print("Invalid credentials. Please try again.")
+PRODUCT_OWNERS = {
+    'Damien Charlemagne': None,
+    'Guillaume Rager': None,
+    'Anshu Sharma': None,
+    'Arnaud Garnier': None,
+    'Samy Bouachour': None
+}
+
+PROJECTS = {
+    'Imaging Cloud': 'IMAGLITE',
+    'Profiler': 'PROFILER'
+}
 
 def get_user_id(jira_client, user_display_name):
     users = jira_client.search_users(query=user_display_name, maxResults=1)
     for user in users:
         if user.displayName.lower() == user_display_name.lower():
             return user.accountId
-    raise ValueError(f"User '{user_display_name}' not found in Jira.")
+    return None
 
 def confirm_input(text):
-    print(f"Heard: {text}")
+    print(f"{text}")
     while True:
         confirmation = input("Is this correct? (Y/N): ").lower()
         if confirmation == 'y':
@@ -71,6 +53,9 @@ def listen(prompt):
             return confirmed_result
         except sr.UnknownValueError:
             print("Could not understand. Please try again.")
+        except sr.RequestError:
+            print("Speech recognition service unavailable. Please type manually.")
+            return input(f"{prompt} (Manual Input): ")
 
 def choose_from_options(prompt, options):
     print(prompt)
@@ -91,8 +76,7 @@ def get_all_project_keys(jira_client):
         projects = jira_client.projects()
         project_data = [(project.name, project.key) for project in projects]
         return sorted(project_data, key=lambda x: x[0])
-    except JIRAError as e:
-        print(f"Error retrieving project keys: {e}")
+    except Exception:
         return []
 
 def save_project_keys_to_file(project_data):
@@ -107,33 +91,22 @@ def save_project_keys_to_file(project_data):
 
 def create_ticket():
     try:
-        username, api_key = load_credentials()
-        
         jira_client = JIRA(
-            options={'server': 'https://cast-products.atlassian.net'},
-            basic_auth=(username, api_key)
+            options={'server': JIRA_SERVER},
+            basic_auth=(JIRA_USERNAME, JIRA_API_TOKEN)
         )
 
-        projects = ['Imaging Cloud', 'Profiler', 'Other']
-        project = choose_from_options("Choose Project:", projects)
+        for po in PRODUCT_OWNERS:
+            PRODUCT_OWNERS[po] = get_user_id(jira_client, po)
 
-        product_owners = {
-            'Damien Charlemagne': None,
-            'Guillaume Rager': None,
-            'Anshu Sharma': None,
-            'Arnaud Garnier': None,
-            'Samy Bouachour': None
-        }
+        project_options = list(PROJECTS.keys()) + ['Other']
+        project = choose_from_options("Choose Project:", project_options)
 
-        for po in product_owners:
-            product_owners[po] = get_user_id(jira_client, po)
-
-        if project == 'Imaging Cloud':
-            product_owner_id = product_owners['Damien Charlemagne']
-            project_key = 'IMAGLITE'
-        elif project == 'Profiler':
-            product_owner_id = product_owners['Guillaume Rager']
-            project_key = 'PROFILER'
+        if project in PROJECTS:
+            project_key = PROJECTS[project]
+            product_owner_id = PRODUCT_OWNERS[
+                'Damien Charlemagne' if project == 'Imaging Cloud' else 'Guillaume Rager'
+            ]
         else:
             while True:
                 project_key_input = input("Enter the project key (type 'ls' to see list): ")
@@ -145,20 +118,25 @@ def create_ticket():
                         file_path = save_project_keys_to_file(project_data)
                         print(f"List of Project Keys: {file_path}")
                     else:
-                        print("No project keys could be retrieved.")
+                        print("The authentication credentials are no longer valid. Please re-configure them.")
+                        sys.exit(1)
                 
                 else:
                     project_key = project_key_input.upper()
+                    product_owner = choose_from_options(
+                        "Select Product Owner:", 
+                        list(PRODUCT_OWNERS.keys())
+                    )
+                    product_owner_id = PRODUCT_OWNERS[product_owner]
                     break
-                
-            product_owner = choose_from_options("Select Product Owner:", list(product_owners.keys()))
-            product_owner_id = product_owners[product_owner]
 
         issue_types = ['Story', 'Technical Story', 'Bug']
         issue_type = choose_from_options("Choose Issue Type:", issue_types).lower()
         
-        summary = listen("What is the summary?")
-        description = listen("What is the description?")
+        # summary = listen("What is the summary?")
+        # description = listen("What is the description?")
+        summary = 'test'
+        description = 'this is a test'
 
         issue_dict = {
             'project': {'key': project_key},
@@ -176,11 +154,29 @@ def create_ticket():
             issue_dict['customfield_10175'] = '-'
 
         new_issue = jira_client.create_issue(fields=issue_dict)
-        ticket_url = f"https://cast-products.atlassian.net/browse/{new_issue.key}"
-        print(f"Ticket created successfully: {ticket_url}")
+        try:
+            current_user = jira_client.search_users(query=JIRA_USERNAME, maxResults=1)[0]
+            
+            jira_client.assign_issue(new_issue, current_user.displayName)
+            
+            ticket_url = f"{JIRA_SERVER}/browse/{new_issue.key}"
+            print(f"Ticket created and assigned to you 😊: {ticket_url}")
 
+        except Exception as assignment_error:
+            print(f"Ticket created successfully!: {JIRA_SERVER}/browse/{new_issue.key}")
+    
+    
     except JIRAError as e:
-        print(f"Unexpected error creating ticket: {e}")
+        if "You do not have permission to create issues" in str(e):
+            print("Invalid credentials or insufficient project permissions.")
+            sys.exit(1)
+        elif "HTTP 401" in str(e):
+            print("Authentication failed. Check your credentials.")
+            sys.exit(1)
+        else:
+            sys.exit(1)
+    except Exception:
+        sys.exit(1)
 
 def main():
     create_ticket()
