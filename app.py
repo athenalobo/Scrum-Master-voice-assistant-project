@@ -4,28 +4,46 @@ import speech_recognition as sr
 from jira import JIRA, JIRAError
 import keyring
 
+def validate_credentials(username, api_key):
+    try:
+        jira_client = JIRA(
+            options={'server': 'https://cast-products.atlassian.net'},
+            basic_auth=(username, api_key)
+        )
+        jira_client.current_user()
+        return True
+    except (JIRAError, Exception):
+        return False
+
 def load_credentials():
     username = keyring.get_password("jira", "username")
     api_key = keyring.get_password("jira", "api_key")
     
-    if not username or not api_key:
+    if username and api_key:
+        if validate_credentials(username, api_key):
+            return username, api_key
+        else:
+            print("Authentication credentials are no longer valid!")
+            keyring.delete_password("jira", "username")
+            keyring.delete_password("jira", "api_key")
+    
+    while True:
         username = input("Enter Jira username: ")
         api_key = input("Enter Jira API key: ")
         
-        keyring.set_password("jira", "username", username)
-        keyring.set_password("jira", "api_key", api_key)
-    
-    return username, api_key
+        if validate_credentials(username, api_key):
+            keyring.set_password("jira", "username", username)
+            keyring.set_password("jira", "api_key", api_key)
+            return username, api_key
+        else:
+            print("Invalid credentials. Please try again.")
 
-def validate_jira_credentials(username, api_key):
-    try:
-        JIRA(
-            options={'server': 'https://cast-products.atlassian.net'},
-            basic_auth=(username, api_key)
-        )
-        return True
-    except JIRAError:
-        return False
+def get_user_id(jira_client, user_display_name):
+    users = jira_client.search_users(query=user_display_name, maxResults=1)
+    for user in users:
+        if user.displayName.lower() == user_display_name.lower():
+            return user.accountId
+    raise ValueError(f"User '{user_display_name}' not found in Jira.")
 
 def confirm_input(text):
     print(f"Heard: {text}")
@@ -76,18 +94,30 @@ def create_ticket():
             basic_auth=(username, api_key)
         )
 
-        projects = ['Imaging Cloud', 'Profiler']
+        projects = ['Imaging Cloud', 'Profiler', 'Other']
         project = choose_from_options("Choose Project:", projects)
-        
-        product_owner_mapping = {
-            'Imaging Cloud': '557058:b7a5cd30-61eb-4bab-99b5-158c8abcf1f9',
-            'Profiler': '70121:c059206c-fc48-4dea-a202-8096c51fe619'
+
+        product_owners = {
+            'Damien Charlemagne': None,
+            'Guillaume Rager': None,
+            'Anshu Sharma': None,
+            'Arnaud Garnier': None,
+            'Samy Bouachour': None
         }
-        
-        project_name_mapping = {
-            'Imaging Cloud': 'IMAGLITE',
-            'Profiler': 'PROFILER'
-        }
+
+        for po in product_owners:
+            product_owners[po] = get_user_id(jira_client, po)
+
+        if project == 'Imaging Cloud':
+            product_owner_id = product_owners['Damien Charlemagne']
+            project_key = 'IMAGLITE'
+        elif project == 'Profiler':
+            product_owner_id = product_owners['Guillaume Rager']
+            project_key = 'PROFILER'
+        else:
+            product_owner = choose_from_options("Select Product Owner:", list(product_owners.keys()))
+            product_owner_id = product_owners[product_owner]
+            project_key = input("Enter the project key: ")
 
         issue_types = ['Story', 'Technical Story', 'Bug']
         issue_type = choose_from_options("Choose Issue Type:", issue_types).lower()
@@ -96,11 +126,11 @@ def create_ticket():
         description = listen("What is the description?")
 
         issue_dict = {
-            'project': {'key': project_name_mapping[project]},
+            'project': {'key': project_key},
             'summary': summary,
             'description': description,
             'issuetype': {'name': issue_type.title()},
-            'customfield_10101': {'accountId': product_owner_mapping[project]},
+            'customfield_10101': {'accountId': product_owner_id},
         }
 
         if issue_type == 'bug':
@@ -116,35 +146,7 @@ def create_ticket():
         print(f"Ticket URL: {ticket_url}")
 
     except JIRAError as e:
-        
-        if e.status_code == 401 or "permission" in str(e).lower():
-            print("Authentication or permission issue detected.")
-            print("Please re-enter your Jira credentials.")
-            
-            keyring.delete_password("jira", "username")
-            keyring.delete_password("jira", "api_key")
-            
-            username = input("Enter Jira username: ")
-            api_key = input("Enter Jira API key: ")
-            
-            keyring.set_password("jira", "username", username)
-            keyring.set_password("jira", "api_key", api_key)
-            
-            try:
-                jira_client = JIRA(
-                    options={'server': 'https://cast-products.atlassian.net'},
-                    basic_auth=(username, api_key)
-                )
-                
-                new_issue = jira_client.create_issue(fields=issue_dict)
-                ticket_url = f"https://cast-products.atlassian.net/browse/{new_issue.key}"
-                print(f"Ticket created successfully: {new_issue.key}")
-                print(f"Ticket URL: {ticket_url}")
-            
-            except JIRAError as retry_error:
-                print(f"Failed to create ticket after re-entering credentials: {retry_error}")
-        else:
-            print(f"Unexpected error creating ticket: {e}")
+        print(f"Unexpected error creating ticket: {e}")
 
 def main():
     create_ticket()
