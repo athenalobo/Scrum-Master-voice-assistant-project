@@ -3,6 +3,7 @@ import sys
 import tempfile
 import speech_recognition as sr
 from jira import JIRA, JIRAError
+import platform
 
 JIRA_SERVER = 'https://cast-products.atlassian.net'
 JIRA_USERNAME = 'your_username'  # Replace with actual username
@@ -17,7 +18,7 @@ PRODUCT_OWNERS = {
 }
 
 PROJECTS = {
-    'Imaging Cloud': 'IMAGLITE',
+    'Imaging on Cloud': 'IMAGLITE',
     'Profiler': 'PROFILER'
 }
 
@@ -35,7 +36,7 @@ def confirm_input(text):
         if confirmation == 'y':
             return text
         elif confirmation == 'n':
-            return input("Please type the correct text: ")
+            return input("✏️ Oops! Please edit the text as required: ")
         else:
             print("Please enter Y or N.")
 
@@ -52,9 +53,9 @@ def listen(prompt):
             confirmed_result = confirm_input(result)
             return confirmed_result
         except sr.UnknownValueError:
-            print("Could not understand. Please try again.")
+            print("🥺 Could not understand. Please try again.")
         except sr.RequestError:
-            print("Speech recognition service unavailable. Please type manually.")
+            print("🛠️ Speech recognition service unavailable. Please type manually.")
             return input(f"{prompt} (Manual Input): ")
 
 def choose_from_options(prompt, options):
@@ -67,9 +68,9 @@ def choose_from_options(prompt, options):
             choice = int(input("Enter the number of your choice: "))
             if 1 <= choice <= len(options):
                 return options[choice - 1]
-            print("Invalid choice. Please try again.")
+            print("❗ Invalid choice. Please try again.")
         except ValueError:
-            print("Please enter a valid number.")
+            print("❗ Please enter a valid number.")
 
 def get_all_project_keys(jira_client):
     try:
@@ -100,82 +101,84 @@ def create_ticket():
             PRODUCT_OWNERS[po] = get_user_id(jira_client, po)
 
         project_options = list(PROJECTS.keys()) + ['Other']
-        project = choose_from_options("Choose Project:", project_options)
+        project = choose_from_options("\n📂 Choose Project:", project_options)
 
         if project in PROJECTS:
             project_key = PROJECTS[project]
             product_owner_id = PRODUCT_OWNERS[
-                'Damien Charlemagne' if project == 'Imaging Cloud' else 'Guillaume Rager'
+                'Damien Charlemagne' if project == 'Imaging on Cloud' else 'Guillaume Rager'
             ]
         else:
             while True:
-                project_key_input = input("Enter the project key (type 'ls' to see list): ")
+                project_key_input = input("\n🗝️ Enter the project key (type 'ls' to see list): ")
                 
                 if project_key_input.lower() == 'ls':
                     project_data = get_all_project_keys(jira_client)
                     
                     if project_data:
                         file_path = save_project_keys_to_file(project_data)
-                        print(f"List of Project Keys: {file_path}")
+                        clickable_path = f"\033]8;;file://{file_path}\033\\{file_path}\033]8;;\033\\"
+                        print(f"📝 List of Project Keys saved to: {clickable_path}")
                     else:
-                        print("The authentication credentials are no longer valid. Please re-configure them.")
+                        print("❗ The authentication credentials are no longer valid. Please re-configure them.")
                         sys.exit(1)
                 
                 else:
                     project_key = project_key_input.upper()
                     product_owner = choose_from_options(
-                        "Select Product Owner:", 
+                        "\n👤 Select Product Owner:", 
                         list(PRODUCT_OWNERS.keys())
                     )
                     product_owner_id = PRODUCT_OWNERS[product_owner]
                     break
 
         issue_types = ['Story', 'Technical Story', 'Bug']
-        issue_type = choose_from_options("Choose Issue Type:", issue_types).lower()
-        
-        # summary = listen("What is the summary?")
-        # description = listen("What is the description?")
-        summary = 'test'
-        description = 'this is a test'
+        issue_type = choose_from_options("\n📚 Choose Issue Type:", issue_types).lower()
 
         issue_dict = {
             'project': {'key': project_key},
-            'summary': summary,
-            'description': description,
             'issuetype': {'name': issue_type.title()},
             'customfield_10101': {'accountId': product_owner_id},
         }
 
         if issue_type == 'bug':
             priorities = ['Minor', 'Major', 'Critical', 'Blocker']
-            priority = choose_from_options("Choose Priority:", priorities).lower()
+            priority = choose_from_options("\n🐛 Choose Priority of Bug:", priorities).lower()
             
             issue_dict['priority'] = {'name': priority.capitalize()}
             issue_dict['customfield_10175'] = '-'
 
+        summary = listen("\n🎙️ What is the summary?")
+        description = listen("\n🎙️ What is the description?")
+
+        issue_dict.update({
+            'summary': summary,
+            'description': description,
+        })
+
         new_issue = jira_client.create_issue(fields=issue_dict)
         try:
             current_user = jira_client.search_users(query=JIRA_USERNAME, maxResults=1)[0]
-            
             jira_client.assign_issue(new_issue, current_user.displayName)
             
             ticket_url = f"{JIRA_SERVER}/browse/{new_issue.key}"
-            print(f"Ticket created and assigned to you 😊: {ticket_url}")
+            print(f"\n✅ {issue_type.capitalize()} successfully created and assigned to you!: {ticket_url}")
 
         except Exception as assignment_error:
-            print(f"Ticket created successfully!: {JIRA_SERVER}/browse/{new_issue.key}")
-    
-    
+            print(f"\n✅ {issue_type.capitalize()} created successfully!: {JIRA_SERVER}/browse/{new_issue.key}")
+
     except JIRAError as e:
         if "You do not have permission to create issues" in str(e):
-            print("Invalid credentials or insufficient project permissions.")
+            print("❗ The authentication credentials are no longer valid or you do not have sufficient project permissions.")
             sys.exit(1)
         elif "HTTP 401" in str(e):
-            print("Authentication failed. Check your credentials.")
+            print("❗ Authentication failed. Please configure your credentials.")
             sys.exit(1)
         else:
+            print(e)
             sys.exit(1)
-    except Exception:
+    except Exception as general_error:
+        print(f"❗ An unexpected error occurred: {general_error}")
         sys.exit(1)
 
 def main():
