@@ -4,3 +4,4 @@ pycache/
 venv/
 .venv/
 dist
+build
