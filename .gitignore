@@ -3,3 +3,5 @@ pycache/
 *.pyc
 venv/
 .venv/
+dist
+build
