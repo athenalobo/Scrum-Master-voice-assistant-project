@@ -42,6 +42,16 @@ jobs:
         run: |
           pyinstaller jira-assistant.spec
 
+      - name: Sign exe (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          chmod +x dist/jira-assistant
+
+      - name: Sign exe(Linux)
+        if: runner.os = 'Linux'
+        run: | 
+          chmod +x dist/jira-assistant
+
       - name: Upload build artifacts
         uses: actions/upload-artifact@v3
         with:
