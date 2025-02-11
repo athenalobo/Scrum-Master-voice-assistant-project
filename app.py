@@ -96,21 +96,21 @@ def save_project_keys_to_file(project_data):
 
     return temp_file_path
 
-
 def create_ticket():
     try:
         jira_client = get_jira()
+        settings = get_settings()
 
         for po in PRODUCT_OWNERS:
             PRODUCT_OWNERS[po] = get_user_id(jira_client, po)
 
-        project_options = list(PROJECTS.keys()) + ['Other']
+        project_options = settings.project_keys + ['Other'] 
         project = choose_from_options("\n📂 Choose Project:", project_options)
 
-        if project in PROJECTS:
-            project_key = PROJECTS[project]
+        if project in settings.project_keys:
+            project_key = project
             product_owner_id = PRODUCT_OWNERS[
-                'Damien Charlemagne' if project == 'Imaging on Cloud' else 'Guillaume Rager'
+                'Guillaume Rager' if project == 'PROFILER' else 'Damien Charlemagne'
             ]
         else:
             while True:
@@ -191,8 +191,6 @@ def create_ticket():
         print(f"❗ An unexpected error occurred: {general_error}")
         sys.exit(1)
 
-
-
 def main():
     args = sys.argv[1:]
 
@@ -200,8 +198,18 @@ def main():
         setup()
     else:
         load_settings()
-        create_ticket()
-        sleep(5)
+        while True:
+            create_ticket()
+            print("\nDo you want to create another ticket?")
+            print("1. Yes")
+            print("2. Exit")
+            choice = input("\nEnter the number of your choice: ")
+            if choice == '2':
+                print("Exiting...")
+                break
+            elif choice != '1':
+                print("Invalid choice. Exiting...")
+                break
 
 
 if __name__ == "__main__":
