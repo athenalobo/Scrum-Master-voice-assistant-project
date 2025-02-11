@@ -48,7 +48,7 @@ def listen(prompt):
         with sr.Microphone() as source:
             recognizer.adjust_for_ambient_noise(source, duration=1)
             print(prompt)
-            audio = recognizer.listen(source, timeout=5)
+            audio = recognizer.listen(source, timeout=25)
 
         try:
             result = recognizer.recognize_google(audio).lower()
