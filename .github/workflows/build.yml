@@ -47,13 +47,13 @@ jobs:
         run: |
           chmod +x dist/jira-assistant
 
-      - name: Sign exe(Linux)
+      - name: Sign exe (Linux)
         if: runner.os == 'Linux'
         run: | 
           chmod +x dist/jira-assistant
 
       - name: Upload build artifacts
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
-            name: build-${{ matrix.os }}-${{ matrix.python-version }}
-            path: dist/
+          name: build-${{ matrix.os }}-${{ matrix.python-version }}
+          path: dist/
