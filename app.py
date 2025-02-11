@@ -8,6 +8,8 @@ from jira import JIRAError
 
 from jira_utils import get_jira
 from setup.setup_cli import setup, load_settings, get_settings
+from prompt_toolkit import prompt as pt_prompt
+
 
 PRODUCT_OWNERS = {
     'Damien Charlemagne': None,
@@ -32,16 +34,13 @@ def get_user_id(jira_client, user_display_name):
 
 
 def confirm_input(text):
-    print(f"{text}")
-    while True:
-        confirmation = input("Is this correct? (Y/N): ").lower()
-        if confirmation == 'y':
-            return text
-        elif confirmation == 'n':
-            return input("✏️ Oops! Please edit the text as required: ")
-        else:
-            print("Please enter Y or N.")
-
+    # Capitalize the first letter of the text
+    capitalized_text = text[0].upper() + text[1:]
+    # Display the text as an editable input field
+    edited_text = pt_prompt(
+        default=capitalized_text,  # Pre-fill the input field with the capitalized text
+    )
+    return edited_text if edited_text else capitalized_text  # Return edited text or keep the original if empty
 
 def listen(prompt):
     recognizer = sr.Recognizer()
@@ -53,15 +52,18 @@ def listen(prompt):
 
         try:
             result = recognizer.recognize_google(audio).lower()
-            confirmed_result = confirm_input(result)
-            return confirmed_result
+            capitalized_result = result[0].upper() + result[1:]
+            confirmed_result = pt_prompt(
+                default=capitalized_result,
+            )
+            return confirmed_result if confirmed_result else capitalized_result
         except sr.UnknownValueError:
             print("🥺 Could not understand. Please try again.")
         except sr.RequestError:
             print("🛠️ Speech recognition service unavailable. Please type manually.")
-            return input(f"{prompt} (Manual Input): ")
-
-
+            manual_input = input(f"{prompt} (Manual Input): ")
+            return manual_input[0].upper() + manual_input[1:]
+         
 def choose_from_options(prompt, options):
     print(prompt)
     for key, option in enumerate(options, 1):
