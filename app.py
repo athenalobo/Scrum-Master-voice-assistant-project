@@ -48,7 +48,7 @@ def listen(prompt):
         with sr.Microphone() as source:
             recognizer.adjust_for_ambient_noise(source, duration=1)
             print(prompt)
-            audio = recognizer.listen(source, timeout=25)
+            audio = recognizer.listen(source, timeout=40)
 
         try:
             result = recognizer.recognize_google(audio).lower()
@@ -158,8 +158,8 @@ def create_ticket():
                 'name': priority.capitalize()}
             issue_dict['customfield_10175'] = '-'
 
-        summary = listen("\n🎙️ What is the summary?")
-        description = listen("\n🎙️ What is the description?")
+        summary = listen("\n🎙️ Recording Summary...")
+        description = listen("\n🎙️ Recording Description...")
 
         issue_dict.update({
             'summary': summary,
@@ -173,10 +173,10 @@ def create_ticket():
             jira_client.assign_issue(new_issue, current_user.displayName)
 
             ticket_url = f"{settings.jira_server}/browse/{new_issue.key}"
-            print(f"\n✅ {issue_type.capitalize()} successfully created and assigned to you!: {ticket_url}")
+            print(f"\n🎉 {issue_type.capitalize()} successfully created and assigned to you!: {ticket_url}")
 
         except Exception as assignment_error:
-            print(f"\n✅ {issue_type.capitalize()} created successfully!: {settings.jira_server}/browse/{new_issue.key}")
+            print(f"\n🎉 {issue_type.capitalize()} created successfully!: {settings.jira_server}/browse/{new_issue.key}")
 
     except JIRAError as e:
         if "You do not have permission to create issues" in str(e):
@@ -202,12 +202,12 @@ def main():
         load_settings()
         while True:
             create_ticket()
-            print("\nDo you want to create another ticket?")
+            print("\n🔄 Do you want to create another ticket?")
             print("1. Yes")
             print("2. Exit")
-            choice = input("\nEnter the number of your choice: ")
+            choice = input("Enter the number of your choice: ")
             if choice == '2':
-                print("Exiting...")
+                print("\n👋 Exiting...")
                 break
             elif choice != '1':
                 print("Invalid choice. Exiting...")
