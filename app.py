@@ -48,6 +48,7 @@ def listen(prompt):
         with sr.Microphone() as source:
             recognizer.adjust_for_ambient_noise(source, duration=1)
             print(prompt)
+            recognizer.pause_threshold = 1.0
             audio = recognizer.listen(source, timeout=40)
 
         try:
@@ -63,7 +64,7 @@ def listen(prompt):
             print("🛠️ Speech recognition service unavailable. Please type manually.")
             manual_input = input(f"{prompt} (Manual Input): ")
             return manual_input[0].upper() + manual_input[1:]
-         
+        
 def choose_from_options(prompt, options):
     print(prompt)
     for key, option in enumerate(options, 1):
