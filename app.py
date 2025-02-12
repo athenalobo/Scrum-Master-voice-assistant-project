@@ -42,14 +42,14 @@ def confirm_input(text):
     )
     return edited_text if edited_text else capitalized_text  # Return edited text or keep the original if empty
 
-def listen(prompt):
+def listen(prompt, timeout=40, threshold=1.0):
     recognizer = sr.Recognizer()
     while True:
         with sr.Microphone() as source:
             recognizer.adjust_for_ambient_noise(source, duration=1)
             print(prompt)
-            recognizer.pause_threshold = 1.0
-            audio = recognizer.listen(source, timeout=40)
+            recognizer.pause_threshold = threshold
+            audio = recognizer.listen(source, timeout=timeout)
 
         try:
             result = recognizer.recognize_google(audio).lower()
@@ -160,7 +160,7 @@ def create_ticket():
             issue_dict['customfield_10175'] = '-'
 
         summary = listen("\n🎙️ Recording Summary...")
-        description = listen("\n🎙️ Recording Description...")
+        description = listen("\n🎙️ Recording Description...", 60, 1.5)
 
         issue_dict.update({
             'summary': summary,
