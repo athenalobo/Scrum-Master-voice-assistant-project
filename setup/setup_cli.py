@@ -87,7 +87,7 @@ def setup() -> Settings:
 
     try:
         settings_path = get_settings_path()
-        write_json(settings_path, settings.dict())
+        write_json(settings_path, settings.json())
         print(f"Successfully created settings at {settings_path} 😍✨")
     except Exception as e:
         print(f"Sorry 😔. Failed to create settings file due to {e}")
