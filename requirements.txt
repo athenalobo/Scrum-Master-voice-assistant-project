@@ -1,6 +1,6 @@
 altgraph==0.17.4
 annotated-types==0.7.0
-audioop-lts==0.2.1
+audioop-lts
 cachetools==5.5.1
 certifi==2024.12.14
 charset-normalizer==3.4.1
